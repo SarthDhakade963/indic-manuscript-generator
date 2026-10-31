@@ -1,0 +1,54 @@
+
+
+# Output
+output_dir: output/dataset
+
+# Image dimensions 
+width:  1400
+height: 1900
+
+# Scripts & volume
+scripts:
+  - devanagari
+  - modi
+  - sharada
+
+count_per_script: 100          # total images per script
+
+splits:
+  train:      85
+  validation: 10
+  test:       5
+
+# Fonts ─
+fonts:
+  devanagari:
+    path:  assets/fonts/devanagiri/NIRMALA.TTC
+    index: 0
+    size:  38
+  modi:
+    path:  assets/fonts/modi/NotoSansModi-Regular.ttf
+    index: 0
+    size:  38
+  sharada:
+    path:  assets/fonts/sharada/NotoSansSharada-Regular.ttf
+    index: 0
+    size:  38
+
+# Background 
+materials:
+  - paper
+  - parchment
+
+aging_levels:
+  - light
+  - moderate
+  - heavy
+
+damage: true                   # torn edges + crease shadows
+
+# Hugging Face upload (optional) ─
+huggingface:
+  repo_id:   your-username/indic-manuscript-dataset
+  repo_type: dataset
+  private:   false
