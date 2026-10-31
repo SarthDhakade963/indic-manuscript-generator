@@ -1,0 +1,7 @@
+{
+  "count_per_script": 100,
+  "seed": 1234,
+  "workers": 1,
+  "deform_strength": 0.75,
+  "materials": {"paper": 0.45, "parchment": 0.15, "palmleaf": 0.40}
+}

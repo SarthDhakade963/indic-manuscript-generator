@@ -321,7 +321,7 @@ def compose(script, alpha, font_path, font_index=0, width=1400, height=1900, see
     elif mode == "short":
         paras, _ = get_paragraphs(script, rng, 8)
         usable = height - top - bottom
-        mb = max(int(height - (top + rng.uniform(0.50, 0.72) * usable)), bottom)
+        mb = max(int(height - (top + rng.uniform(0.66, 0.86) * usable)), bottom)
         m1, l1 = _block(paras, font_path, font_index, width, height, (left, right, top, mb), fs, seed)
         blocks = [(m1, l1, True)]
         ctop = (l1["lines"][-1]["baseline"] + l1["descent"] + 60) if l1["lines"] else top
