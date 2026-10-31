@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 
+PALM_HOLE_FRACS = (0.33, 0.67)   # string-hole x positions as a fraction of width
+PALM_HOLE_R = 15
+PALM_CLEAR = 85                  # text keeps this far from each hole centre
+
 
 def _noise(width, height, rng, scale):
     """Smooth noise whose features are about `scale` pixels across."""
@@ -20,7 +24,7 @@ def _smooth_1d(length, rng, knots):
     return cv2.resize(k, (length, 1), interpolation=cv2.INTER_CUBIC).ravel()
 
 
-# ------------------------------------------------------------------ creases
+# creases
 
 def add_crease_shadows(paper, rng, count=3):
     """Simulates physical folds in the paper. Each crease has a dark valley on
@@ -91,7 +95,7 @@ def add_crease_shadows(paper, rng, count=3):
     return paper
 
 
-# --------------------------------------------------------------- torn edge
+# torn edge
 
 def generate_torn_edge(width, height, rng):
     """Generates an irregular torn paper boundary. Returns two things:
@@ -167,7 +171,7 @@ def add_torn_rim(paper, signed, rng):
     return paper * (1.0 - a) + pale * a
 
 
-# ------------------------------------------------------------------- entry
+#---- entry
 
 def apply_damage(
     paper,
@@ -189,4 +193,47 @@ def apply_damage(
     else:
         alpha = np.full((height, width), 255, dtype=np.uint8)
 
+    return np.clip(paper, 0, 255), alpha
+
+
+def generate_palm_edge(width, height, rng):
+    """Straight-cut long edges, ragged split short edges, two transparent string holes."""
+    y, x = np.mgrid[0:height, 0:width].astype(np.float32)
+    top_off = 6.0 + 2.5 * _smooth_1d(width, rng, 14) + 0.8 * _smooth_1d(width, rng, width // 9)
+    bot_off = 6.0 + 2.5 * _smooth_1d(width, rng, 14) + 0.8 * _smooth_1d(width, rng, width // 9)
+    sides = []
+    for _ in range(2):
+        off = 16.0 + 9.0 * _smooth_1d(height, rng, 10) + 4.0 * _smooth_1d(height, rng, height // 6)
+        for _ in range(int(rng.integers(1, 4))):
+            c = int(rng.integers(20, height - 20))
+            w2 = int(rng.integers(2, 5))
+            lo, hi = max(0, c - w2), min(height, c + w2)
+            off[lo:hi] += rng.uniform(12, 30) * rng.uniform(0.4, 1.0, hi - lo)
+        sides.append(np.maximum(off, 2.0))
+    d_top = y - top_off[None, :]
+    d_bot = (height - 1 - y) - bot_off[None, :]
+    d_left = x - sides[0][:, None]
+    d_right = (width - 1 - x) - sides[1][:, None]
+    signed = np.minimum.reduce([d_top, d_bot, d_left, d_right])  
+    for f in PALM_HOLE_FRACS:  
+        ang = np.arctan2(y - height / 2, x - f * width)  
+        ph = rng.uniform(0, 6.28, 3)  
+        wob = 1.2 * np.sin(2 * ang + ph[0]) + 0.8 * np.sin(3 * ang + ph[1]) + 0.5 * np.sin(5 * ang + ph[2])  
+        signed = np.minimum(signed, np.hypot(x - f * width, y - height / 2) - PALM_HOLE_R - wob)  
+    alpha = np.clip(signed / 1.5 + 0.5, 0.0, 1.0)
+    return (alpha * 255).astype(np.uint8), signed.astype(np.float32)
+
+
+def apply_palm_damage(paper, rng, edge_strength=0.4):
+    paper = np.asarray(paper, dtype=np.float32).copy()
+    height, width = paper.shape[:2]
+    alpha, signed = generate_palm_edge(width, height, rng)
+    paper = add_torn_edge_darkening(paper, signed, rng, edge_strength)
+    paper = add_torn_rim(paper, signed, rng)
+    y, x = np.mgrid[0:height, 0:width].astype(np.float32)
+    tint = np.array([0.55, 0.42, 0.28], dtype=np.float32)
+    for f in PALM_HOLE_FRACS:
+        d = np.hypot(x - f * width, y - height / 2) - PALM_HOLE_R
+        a = 0.8 * np.exp(-(np.maximum(d, 0) / 12.0) ** 2)
+        paper = paper * (1.0 - a[:, :, None] * (1.0 - tint[None, None, :]))
     return np.clip(paper, 0, 255), alpha

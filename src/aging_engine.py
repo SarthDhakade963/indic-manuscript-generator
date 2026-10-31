@@ -105,14 +105,14 @@ def add_water_damage(paper, rng, count, strength):
     into an accumulated alpha map first, then apply once, so overlapping stains
     blend naturally instead of leaving weird gaps or doubling up."""
     height, width = paper.shape[:2]
-
+    sc = min(1.0, min(width, height) / 1200.0)
     pool = []
     for _ in range(MAX_STAINS):
         pool.append((
             rng.uniform(-0.1 * width, 1.1 * width),
             rng.uniform(-0.1 * height, 1.1 * height),
-            rng.uniform(110, 260),
-            rng.uniform(130, 300),
+            rng.uniform(110, 260) * sc,
+            rng.uniform(130, 300) * sc,
             rng.uniform(0.7, 1.0),
             int(rng.integers(0, 2 ** 32)),
         ))
@@ -236,8 +236,9 @@ def add_edge_aging(paper, rng, strength):
     wobble = fbm(width, height, rng, grid=10, octaves=4)
     patch = fbm(width, height, rng, grid=5, octaves=3)
 
-    band = 0.12 * width
-    d = dist + 0.02 * width * wobble
+    sz = min(width, height)
+    band = 0.12 * sz
+    d = dist + 0.02 * sz * wobble
 
     edge = np.clip(1.0 - d / band, 0.0, 1.0) ** 2
     alpha = strength * edge * np.clip(0.8 + 0.4 * patch, 0.25, 1.5)
@@ -248,12 +249,14 @@ def add_edge_aging(paper, rng, strength):
 
 # ---------------------------------------------------------------- entry
 
-def apply_aging(paper, profile, rng):
+def apply_aging(paper, profile, rng, damp=1.0):
     if profile not in AGING_PROFILES:
         raise ValueError(f"Unknown aging profile: {profile}")
 
     paper = validate_paper(paper)
-    config = AGING_PROFILES[profile]
+    config = dict(AGING_PROFILES[profile])  
+    config["yellowing"] *= damp  
+    config["edge"] *= damp  
 
     # Each effect gets its own independent random stream.
     # This means you can change how many foxing spots appear without

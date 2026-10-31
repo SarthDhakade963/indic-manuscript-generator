@@ -8,10 +8,16 @@ from src.ink_engine import render_ink
 from src.text_renderer import render_text_mask, handwrite
 from src.corpus import get_paragraphs, HEADERS
 from src.translit import convert
+from src.damage_engine import PALM_HOLE_FRACS, PALM_CLEAR
+
 
 ink_engine.INKS.setdefault("vermilion", {
     "fresh": (150, 28, 22), "aged": (118, 52, 34), "brown_amount": 0.6,
     "max_opacity": 0.92, "bleed": 1.0, "fade": 1.0})
+ink_engine.INKS.setdefault("lampblack", {  
+    "fresh": (28, 22, 16), "aged": (46, 34, 22), "brown_amount": 0.5,
+    "max_opacity": 0.93, "bleed": 0.6, "fade": 0.35})
+ink_engine.MATERIAL_BLEED.setdefault("palmleaf", 0.5)  
 
 MARKERS = set("।॥") | {"\U00011641", "\U00011642", "\U000111C5", "\U000111C6"}
 NOTES = ["श्री", "पाठांतर", "शुद्ध पाठ", "राम राम", "ॐ नमः शिवाय", "हे पुन्हा पाहावे", "इति", "टीका",
@@ -233,10 +239,49 @@ def _shift(mask, layout, dx):
             wd["x1"] += dx
     return mask
 
+def _compose_palm(script, alpha, font_path, font_index, width, height, seed, font_size):  # PALM_V1
+    rng = np.random.default_rng(seed)
+    fs = int(font_size * 0.8)
+    top = 62 + int(rng.integers(0, 14))
+    bottom = 62 + int(rng.integers(0, 60))
+    inside = cv2.erode((_alpha01(alpha) > 0.5).astype(np.uint8), np.ones((31, 31), np.uint8))
+    rows = inside[top:height - bottom]
+    if not rows.any(axis=1).all():
+        raise RuntimeError("palm: page edge intrudes into text rows")
+    first = rows.argmax(axis=1)
+    last = width - 1 - rows[:, ::-1].argmax(axis=1)
+    left = int(first.max()) + 25
+    right = int(width - 1 - last.min()) + 25
+    hx = [f * width for f in PALM_HOLE_FRACS]
+    segs = [(left, hx[0] - PALM_CLEAR), (hx[0] + PALM_CLEAR, hx[1] - PALM_CLEAR),
+            (hx[1] + PALM_CLEAR, width - right)]
+    blocks = []
+    for k, (a, b) in enumerate(segs):
+        paras, _ = get_paragraphs(script, rng, 3)
+        text = " ".join(_strip_header(paras, script))
+        m, lay = _block([text], font_path, font_index, width, height,
+                        (int(round(a)), int(round(width - b)), top, bottom), fs, seed + 41 * (k + 1))
+        blocks.append((m, lay))
+    counts = {len(lay["lines"]) for _, lay in blocks}
+    if len(counts) != 1 or 0 in counts:
+        raise RuntimeError(f"palm: unequal line counts {counts}")
+    n = counts.pop()
+    md = "\n".join(" ".join(blocks[k][1]["lines"][i]["text"] for k in range(3)) for i in range(n)) + "\n"
+    lines = [blocks[k][1]["lines"][i] for i in range(n) for k in range(3)]
+    ref = blocks[0][1]
+    layout = {"lines": lines, "ascent": ref["ascent"], "descent": ref["descent"],
+              "margins": (left, right, top, bottom), "font_size": fs}
+    zero = np.zeros((height, width), np.float32)
+    return {"black": np.maximum.reduce([m for m, _ in blocks]).astype(np.float32), "red": zero,
+            "wash": zero, "layout": layout, "md": md, "highlighted": [], "side_note": None,
+            "folio": None, "mode": "palm", "overflow": any(lay["overflow"] for _, lay in blocks),
+            "margins": (left, right, top, bottom), "safe": (left, right, top, bottom)}
 
 def compose(script, alpha, font_path, font_index=0, width=1400, height=1900, seed=0,
             font_size=38, mode=None):
     rng = np.random.default_rng(seed)
+    if mode == "palm":
+        return _compose_palm(script, alpha, font_path, font_index, width, height, seed, font_size)
     sl, sr, st, sb = safe_area(alpha)
     left, right = max(sl + 120, 190), max(sr + 50, 110)
     top, bottom = max(st + 110, 190), max(sb + 35, 130)
@@ -335,8 +380,15 @@ def compose(script, alpha, font_path, font_index=0, width=1400, height=1900, see
 
 
 def ink_page(page_rgb, alpha, comp, maps, material, aging_level, seed):
+    if material == "palmleaf":  # PALM_V1
+        g = cv2.GaussianBlur(comp["black"], (0, 0), 2.2)
+        a = (np.clip(g * 0.5, 0, 0.35) * _alpha01(alpha))[..., None]
+        tint = np.array([0.60, 0.48, 0.32], np.float32)
+        f = page_rgb.astype(np.float32) / 255.0
+        page_rgb = (np.clip(f * (1.0 - a * (1.0 - tint)), 0, 1) * 255.0 + 0.5).astype(np.uint8)
+    ink_name = "lampblack" if material == "palmleaf" else "iron_gall"  # PALM_V1
     out = render_ink(page_rgb, alpha, comp["black"], maps["absorbency"], maps["roughness"],
-                     np.random.default_rng(seed + 7), ink="iron_gall", fiber_map=maps["fiber_map"],
+                     np.random.default_rng(seed + 7), ink=ink_name, fiber_map=maps["fiber_map"],
                      aging_level=aging_level, material=material)
     if comp["red"].max() > 0.02:
         out = render_ink(out, alpha, comp["red"], maps["absorbency"], maps["roughness"],

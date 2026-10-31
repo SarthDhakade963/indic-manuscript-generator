@@ -24,6 +24,15 @@ MATERIALS = {
         "absorbency": 0.48,        # parchment is less absorbent, ink sits more on the surface
         "roughness": 0.48,         # slightly rougher due to scraped skin texture
     },
+    "palmleaf": { 
+        "base": (168, 140, 84),
+        "large": 5.0,
+        "medium": 3.0,
+        "grain": 2.0,
+        "fiber": 12.0,
+        "absorbency": 0.30,
+        "roughness": 0.55,
+    },
 }
 
 
@@ -140,6 +149,28 @@ def generate_skin_detail(width, height, rng):
 
     return mottle, veins, specks
 
+def generate_palm_striations(width, height, rng):  
+    out = np.zeros((height, width), dtype=np.float32)
+    for rows, cols, amp in ((height // 3, 8, 1.0), (height // 2, 20, 0.7), (height, 50, 0.45)):
+        n = rng.normal(0, 1, (max(2, rows), cols)).astype(np.float32)
+        out += amp * cv2.resize(n, (width, height), interpolation=cv2.INTER_CUBIC)
+    out /= out.std() + 1e-6
+    cracks = np.zeros((height, width), dtype=np.float32)
+    for _ in range(int(width * height / 9000)):
+        x = rng.uniform(0, width)
+        y = rng.uniform(0, height)
+        length = rng.uniform(80, 500)
+        n = max(3, int(length / 12))
+        pts = [(x, y)]
+        for _ in range(n):
+            x += length / n
+            y += rng.normal(0, 0.6)
+            pts.append((x, y))
+        pts = np.round(np.array(pts)).astype(np.int32).reshape(-1, 1, 2)
+        cv2.polylines(cracks, [pts], False, -float(rng.uniform(0.5, 1.2)),
+                      thickness=1, lineType=cv2.LINE_AA)
+    return (0.6 * out + cracks).astype(np.float32)
+
 def generate_material_surface(
     width,
     height,
@@ -201,6 +232,10 @@ def generate_material_surface(
         rgb -= veins[:, :, None] * 6.0 * tone[None, None, :]
         rgb -= specks[:, :, None] * 28.0 * np.array([1.0, 1.0, 0.8],
                                                     dtype=np.float32)
+    elif material == "palmleaf":  
+        fiber_map = generate_palm_striations(width, height, rng)
+        rgb += fiber_map[:, :, None] * config["fiber"] * np.array([1.0, 0.9, 0.6], dtype=np.float32)
+        rgb += spatial_noise(width, height, rng, 6, blur=15)[:, :, None] * np.array([-5.0, 4.0, -3.0], dtype=np.float32)
     else:
         # Paper gets actual elongated fiber strands
         fiber_map = generate_fiber_map(width, height, rng)

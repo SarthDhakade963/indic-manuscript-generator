@@ -6,10 +6,10 @@ from PIL import Image
 
 from src.material_texture import generate_material_surface
 from src.aging_engine import apply_aging
-from src.damage_engine import apply_damage
+from src.damage_engine import apply_damage, apply_palm_damage
 
 
-MATERIALS = ["paper", "parchment"]
+MATERIALS = ["paper", "parchment", "palmleaf"]
 AGING_LEVELS = ["light", "moderate", "heavy"]
 EDGE_DARKEN = {"light": 0.25, "moderate": 0.40, "heavy": 0.60}
 
@@ -62,11 +62,14 @@ def generate_manuscript_background(
         paper,
         profile=aging,
         rng=aging_rng,
+        damp=0.5 if material == "palmleaf" else 1.0,
     )
 
     # 3. Add physical damage: creases and torn edges
     crease_count = 0
-    if damage:
+    if material == "palmleaf":
+        paper, alpha = apply_palm_damage(paper, damage_rng, edge_strength=EDGE_DARKEN[aging] * 0.5)
+    elif damage:
         crease_count = int(rng.integers(1, 4))
 
         paper, alpha = apply_damage(
