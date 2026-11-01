@@ -272,3 +272,26 @@ print(sample["text"])
 - Line-level bounding boxes in `metadata.jsonl` (the layout already knows word and line positions).
 - More scripts (the pipeline needs only a font and a Unicode mapping).
 
+## Troubleshooting
+| Problem | Fix |
+|---|---|
+| Devanagari conjuncts look broken | RAQM is missing. Use a Pillow build with RAQM and FriBiDi (conda-forge works). |
+| `OSError: cannot open resource` | Font path is wrong. Check `assets/fonts/...` or set `fonts` in `config.json`. |
+| `RuntimeError: no valid page after N attempts` | Raise `max_attempts`, or lower `font_size` or `deform_strength`. |
+| Generation is slow | Use `--workers 4` (or your core count). |
+| Git lock-file or "bad object" errors | Keep the repository outside OneDrive-synced folders. |
+| Earlier output disappeared | The output folder is cleared on each run; use a different `--out`. |
+
+---
+
+## Known limitations
+- **Transliteration is unverified.** Modi and Sharada text is Devanagari source text (Marathi for Devanagari and Modi, Sanskrit verses for Sharada) mapped to the Unicode Modi and Sharada blocks character by character. Glyph choices have not been checked by a native reader, and the orthographic conventions of the real scripts (conjunct forms, Modi writing conventions) are not modelled.
+- **Typeset fonts.** All scripts use digital fonts; the handwritten look comes from warping and ink simulation, not from real calligraphic glyph variants.
+- **Palm leaf:** the three text blocks are independent, so a sentence does not run across the holes; palm leaf has no rubrication or margin notes.
+- **Small corpus.** About 80 Marathi fragments and 28 Sanskrit verses, so text repeats across pages. A model trained only on this data will not generalize to unseen vocabulary.
+- **Procedural backgrounds,** mostly warm brown (palm leaf is olive-tan); cooler or paler papers are not generated.
+- **Fixed layout templates.** Multi-page continuity, illustrations and diagrams are not modelled.
+- **No OCR benchmark** has been run on the dataset yet.
+
+---
+
