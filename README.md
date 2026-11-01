@@ -1,241 +1,274 @@
 # Synthetic Manuscript Generator
 
-An end-to-end Python pipeline that generates **realistic synthetic Indic manuscript folios** paired with structured ground-truth annotation files (`.md`), suitable for training OCR models.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-yellow)](https://huggingface.co/datasets/SarthDhakade963/indic-manuscript-dataset)
 
-Supports three Indic scripts: **Devanagari**, **Modi**, and **Sharada**.
+An end-to-end Python pipeline that synthesizes **historical Indic manuscript folios** in three scripts (**Devanagari, Modi, Sharada**) together with **synchronized ground-truth text**. Every page is saved as a pair, `Image_N.png` and `Image_N.md`, with a `metadata.jsonl` per split. The goal is OCR training data that looks like manuscripts, not like typeset text on a white page.
 
----
+**Hugging Face dataset:** [`SarthDhakade963/indic-manuscript-dataset`](https://huggingface.co/datasets/SarthDhakade963/indic-manuscript-dataset)
 
-## Sample Output
-
-| Devanagari (paper) | Modi (parchment) | Sharada (paper) |
+## Samples
+| Devanagari (paper) | Modi (palm leaf) | Sharada (parchment) |
 |---|---|---|
-| _generated image_ | _generated image_ | _generated image_ |
+| ![](samples/devanagari.png) | ![](samples/modi.png) | ![](samples/sharada.png) |
 
 ---
 
-## Dataset
+## Features
 
-The generated dataset is hosted on Hugging Face:
+**Materials**
+- **Paper:** warm handmade-paper base, multi-scale tonal variation, fine grain, thousands of faint curved fibre strands. The fibre map also drives ink behaviour.
+- **Parchment:** golden base, mottled translucency, faint veins, follicle specks. Ink bleeds less than on paper.
+- **Palm leaf:** 2000x500 strip with olive-tan colour, longitudinal striations and hairline cracks, straight-cut long edges, ragged split ends and two irregular string holes (transparent in the page mask).
 
-**[your-username/indic-manuscript-dataset](https://huggingface.co/datasets/your-username/indic-manuscript-dataset)**
+**Aging and damage**
+- Patchy yellowing, tide-mark water stains, foxing spots with halos, edge darkening (light / moderate / heavy).
+- Crease shadows, torn paper edges with a pale fibrous rim.
 
-Structure:
+**Deformation** (`src/deform.py`)
+- Smooth surface warp, edge curl and folds on paper and parchment, and a gentle bow plus uneven lighting on palm leaf.
+- The same displacement is applied to the image, the page mask and the text masks, so validation runs on the deformed result.
+
+**Text, layout and ink**
+- Five layouts: single block, two columns, main block plus colophon box, short page plus closing formula, three-block palm-leaf strip.
+- Hand-ruled lines (slope, waviness and gaps per line), margin notes, folio numbers, running verse numbers in the script's own numerals, danda and double-danda markers.
+- Rubricated (vermilion) verse markers and words, and yellow highlighted words.
+- Handwriting-style variation: per-line slope, per-word baseline wobble, rotation and gap jitter, a smooth stroke-warp field and pressure drift.
+- Inks: iron gall, lampblack (palm leaf, with an incised look) and vermilion. Absorbency-driven bleed, dry patches, granulation, fading over stains, aging toward brown.
+
+**Scripts:** Devanagari, Modi, Sharada, as Unicode text shaped with RAQM.
+
+## Brief vs. implementation
+| Requirement | How it is met |
+|---|---|
+| Palm-leaf and aged paper backgrounds | Palm leaf, paper and parchment, generated procedurally |
+| Natural aging, creases, torn edges | Aging engine plus damage engine; palm leaf has its own edge and holes |
+| Curling, folds, surface warping | Non-planar surface warping via smooth cubic displacement fields, smoothstep edge curling, fold line deflections, and palm-leaf longitudinal bowing; applied synchronously to RGB image, page mask, and text labels |
+| Multiple text blocks, marginal and side text | Five layouts; margin note on about 80% of paper/parchment pages |
+| Section / punctuation markers, highlighted text | Dandas with verse numbers, rubrication, yellow wash |
+| Natural handwriting | Wobble, slope, warp, pressure variation (see limitations) |
+| Ink variation, bleeding, fading | Three inks plus a bleed/fade model |
+| Text inside the manuscript | Margins from the torn-edge geometry, plus per-page checks |
+| 100 images per script, 85 / 10 / 5 | Generated and verified |
+| `python generate.py` | Yes, with `config.json` and CLI flags |
+| Hugging Face dataset with three subsets | `devanagari`, `modi`, `sharada` configs, each with train / validation / test |
+
+---
+
+## How it works
 ```
-devanagari/
-  train/        (85 images + .md files)
-  validation/   (10 images + .md files)
-  test/         (5 images + .md files)
-modi/
-  train/ validation/ test/
-sharada/
-  train/ validation/ test/
+config.json / CLI
+      |
+      v
+generate.py -> per page: material, aging, ink level, layout from a seeded RNG
+      |
+      +-> background_generator   material surface -> aging -> damage / edge
+      |      (RGB page, alpha page mask, absorbency / fibre / roughness maps)
+      +-> corpus + translit      Marathi / Sanskrit source text -> target-script Unicode
+      +-> layout.compose         text masks (black, red, yellow wash), ruling, note, folio, label text
+      +-> layout.ink_page        ink compositing using the material maps
+      +-> deform                 warp / curl / fold on RGB + alpha + text masks together
+      +-> checks                 overflow == False and outside_fraction == 0.0, else new seed
+      +-> composite on a dark backdrop, save Image_N.png + Image_N.md, write metadata.jsonl
 ```
+
+**Corpus:** about 80 Marathi pothi-style fragments (for Devanagari and Modi) and 28 Sanskrit verses (for Sharada), drawn without replacement and joined into verses with running verse numbers. About 85% of pages start with an invocation header.
+
+**Layout modes** (paper and parchment; palm-leaf pages always use `palm`):
+
+| Mode | Description | Probability |
+|---|---|---|
+| `single` | One ruled text block | 35% |
+| `two_col` | Two ruled columns with a gutter | 25% |
+| `colophon` | Main block plus a double-ruled box with a closing formula | 25% |
+| `short` | Text stops partway down, then a centred closer | 15% |
+| `palm` | Three blocks around the string holes, no ruling, black ink only | palm leaf |
+
+Devanagari lines are ruled at the headline, Modi lines under the baseline (Modi has no headline).
 
 ---
 
 ## Installation
-
+Python 3.10+ (developed on 3.12).
 ```bash
-git clone https://github.com/your-username/indic-manuscript-generator
+git clone https://github.com/SarthDhakade963/indic-manuscript-generator.git
 cd indic-manuscript-generator
-
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # Linux / macOS
-
+conda create -n manuscript python=3.12
+conda activate manuscript
 pip install -r requirements.txt
 ```
-
-### Font Setup
-
-Place font files in the `assets/fonts/` directory:
-
-```
-assets/fonts/
-  devanagiri/   NIRMALA.TTC          (Windows: C:/Windows/Fonts/Nirmala.ttf)
-  modi/         NotoSansModi-Regular.ttf
-  sharada/      NotoSansSharada-Regular.ttf
-```
-
-Download Noto fonts: [fonts.google.com/noto](https://fonts.google.com/noto)
-
-### Text Corpus Setup
-
-Run once to populate `assets/text/` with classical Indic source text:
-
+Pillow needs **RAQM and FriBiDi** for correct Devanagari shaping. Check:
 ```bash
-python setup_assets.py
+python -c "from PIL import features; print(features.check('raqm'))"
 ```
+It must print `True`. Without it, the renderer falls back to basic layout and conjuncts break.
+
+### Fonts
+Fonts live in `assets/fonts/` (the folder is spelled `devanagiri`); paths are configurable in `config.json`:
+```
+assets/fonts/devanagiri/NIRMALA.TTC
+assets/fonts/modi/NotoSansModi-Regular.ttf
+assets/fonts/sharada/NotoSansSharada-Regular.ttf
+```
+The Noto fonts are SIL OFL. Nirmala UI is a Microsoft font, included only so the private repository runs out of the box. Swap in Noto Sans Devanagari via the `fonts` key if you redistribute.
 
 ---
 
 ## Usage
-
 ```bash
-# Generate all 300 images (100 per script)
-python generate.py
-
-# Quick test — 3 images, Devanagari only
-python generate.py --count 3 --scripts devanagari
-
-# Generate + upload to Hugging Face
-python generate.py --upload
-
-# Custom config / output directory
-python generate.py --config config.yaml --output output/my_run
+python generate.py                                  # 100 pages per script, 85/10/5 split
+python generate.py --workers 4                      # parallel
+python generate.py --scripts sharada --count 5 --out output/quick_test
+python generate.py --seed 7 --config my_config.json
 ```
-
-### CLI Options
-
 | Flag | Default | Description |
 |---|---|---|
-| `--config` | `config.yaml` | Path to YAML config file |
-| `--scripts` | all three | Subset of scripts to generate |
-| `--count` | 100 | Images per script |
-| `--output` | `output/dataset` | Output directory |
-| `--upload` | off | Upload to Hugging Face after generation |
+| `--config` | `config.json` | JSON file overriding any default |
+| `--count` | `100` | Pages per script |
+| `--workers` | `1` | Parallel processes |
+| `--scripts` | all three | Subset of `devanagari`, `modi`, `sharada` |
+| `--seed` | `1234` | Master seed |
+| `--out` | `output/dataset` | Output directory |
+
+> `generate.py` **deletes and recreates** the output directory on every run. Use a different `--out` to keep earlier runs.
+
+The full 300-page run took about 20 minutes on the development machine (palm-leaf pages about 2 s, paper and parchment about 7-8 s). Each run also writes a contact sheet per script next to the output folder (`<out>_contact_<script>.png`) and a dataset card inside it.
+
+### Uploading to Hugging Face
+```bash
+pip install huggingface_hub datasets
+huggingface-cli login
+python -c "from huggingface_hub import HfApi; a=HfApi(); a.create_repo('SarthDhakade963/indic-manuscript-dataset', repo_type='dataset', private=False, exist_ok=True); a.upload_folder(folder_path='output/dataset', repo_id='SarthDhakade963/indic-manuscript-dataset', repo_type='dataset')"
+```
 
 ---
 
 ## Configuration
+Any key left out of `config.json` falls back to its default in `generate.py`.
 
-All parameters are in [`config.yaml`](config.yaml):
+| Key | Default | Meaning |
+|---|---|---|
+| `scripts` | all three | Scripts to generate |
+| `count_per_script` | 100 | Pages per script |
+| `split` | 0.85 / 0.10 / 0.05 | Train / validation / test fractions |
+| `seed` | 1234 | Master seed |
+| `output_dir` | `output/dataset` | Output folder |
+| `workers` | 1 | Parallel processes |
+| `font_size` | 38 | Base font size (two-column 0.94x, palm leaf 0.8x) |
+| `deform_strength` | 0.75 | Warp, curl and fold strength (0 disables) |
+| `max_attempts` | 12 | Retries per page if a check fails |
+| `materials` | paper 0.45, parchment 0.15, palmleaf 0.40 | Material mix (weights) |
+| `aging` | light 0.3, moderate 0.4, heavy 0.3 | Aging mix (weights) |
+| `ink_level` | light 0.1-0.3, moderate 0.4-0.6, heavy 0.7-0.9 | Ink aging range per aging level |
+| `sizes` | page 1400x1900, palm leaf 2000x500 | Image sizes |
+| `fonts` | see Fonts | Font path and index per script |
+| `backdrops` | four dark RGB colours | Colours shown outside the torn edge |
 
-```yaml
-width:  1400
-height: 1900
-count_per_script: 100
-splits:
-  train: 85
-  validation: 10
-  test: 5
-materials: [paper, parchment]
-aging_levels: [light, moderate, heavy]
+```json
+{
+  "count_per_script": 100,
+  "seed": 1234,
+  "workers": 4,
+  "deform_strength": 0.75,
+  "materials": {"paper": 0.45, "parchment": 0.15, "palmleaf": 0.40}
+}
 ```
 
 ---
 
-## Repository Structure
-
-```
-.
-├── generate.py                  # Main CLI entry point
-├── setup_assets.py              # One-time text corpus generator
-├── config.yaml                  # All tunable parameters
-├── requirements.txt
-│
-├── assets/
-│   ├── fonts/
-│   │   ├── devanagiri/          # Nirmala / Devanagari fonts
-│   │   ├── modi/                # Noto Sans Modi
-│   │   └── sharada/             # Noto Sans Sharada
-│   └── text/
-│       ├── devanagari.txt       # Classical Marathi source text
-│       ├── modi.txt             # Modi script source text
-│       └── sharada.txt          # Sharada script source text
-│
-├── src/
-│   ├── material_texture.py      # Paper / parchment base texture generation
-│   ├── aging_engine.py          # Yellowing, foxing, water damage, edge aging
-│   ├── damage_engine.py         # Crease shadows + torn irregular edges
-│   ├── background_generator.py  # Orchestrates background pipeline
-│   ├── corpus.py                # Source text loading and paragraph generation
-│   ├── translit.py              # Devanagari → Modi / Sharada Unicode conversion
-│   ├── text_renderer.py         # Text → stroke mask with handwriting effects
-│   ├── layout.py                # Page composition: text + margins + rubrication
-│   └── ink_engine.py            # Ink compositing (iron-gall + vermilion)
-│
-└── output/
-    └── dataset/
-        ├── devanagari/
-        │   ├── train/
-        │   ├── validation/
-        │   └── test/
-        ├── modi/
-        └── sharada/
+## Repository structure
+```text
+generate.py                entry point: generation, validation, split, dataset card, contact sheets
+config.json                user-editable parameters
+requirements.txt
+src/
+  material_texture.py      base surfaces: paper, parchment, palm leaf
+  aging_engine.py          yellowing, water stains, foxing, edge aging
+  damage_engine.py         creases, torn edges, palm-leaf edge and string holes
+  background_generator.py  combines the three above; returns image, alpha mask, material maps
+  corpus.py                Marathi and Sanskrit source text, verse numbers, headers
+  translit.py              Devanagari -> Modi / Sharada Unicode mapping
+  text_renderer.py         text to stroke mask; handwriting warp
+  layout.py                layouts, ruling, rubrication, highlights, notes, ink pass
+  ink_engine.py            ink compositing (bleed, fade, density variation)
+  deform.py                warp, curl and fold on image, alpha and masks together
+assets/fonts/              fonts
+samples/                   example pages
 ```
 
 ---
 
-## Pipeline Overview
-
+## Dataset organization
+```text
+<dataset>/
+  README.md                dataset card with the three configs
+  devanagari/
+    train/        Image_N.png, Image_N.md, metadata.jsonl   (85)
+    validation/   ...                                       (10)
+    test/         ...                                       (5)
+  modi/      train / validation / test
+  sharada/   train / validation / test
 ```
-config.yaml
-    │
-    ▼
-generate.py
-    │
-    ├── background_generator ──► material_texture ──► aging_engine ──► damage_engine
-    │       (aged paper RGB + alpha mask + material maps)
-    │
-    ├── corpus + translit
-    │       (classical Indic text in target script Unicode)
-    │
-    ├── layout (compose)
-    │       (stroke mask: main text + margin note + folio number + rubricated words)
-    │
-    ├── ink_engine (ink_page)
-    │       (iron-gall ink + vermilion highlights composited onto background)
-    │
-    └── save Image_NNN.png + Image_NNN.md
+| Split | Ratio | Folios per script |
+|---|:---:|:---:|
+| Train | 85% | 85 |
+| Validation | 10% | 10 |
+| Test | 5% | 5 |
+
+`Image_N` is the generation index; the split assignment is a seeded shuffle, so a split's numbers are not contiguous.
+
+`metadata.jsonl` has one row per image. Example (text shortened):
+```json
+{"file_name": "Image_6.png", "text": "श्री हरिः ॐ ।\n...", "script": "devanagari", "material": "paper", "aging": "moderate", "ink_level": 0.504, "mode": "colophon", "font": "NIRMALA.TTC", "seed": 1587455218, "attempts": 1, "rubricated_words": ["।१२३।", "।१२४।", "।१२५।"], "side_note": null, "folio": "।९०।", "curl": "left", "fold": null, "width": 1400, "height": 1900}
 ```
-
----
-
-## Annotation Format
-
-Each image has a paired `.md` file:
-
-```markdown
-श्री गणेशाय नमः ।
-
-ऐकोनि ऋषीचे वचन । राजा जाहला प्रसन्न । ...।३१।
-
-तरीच सुख । पुढे झाले ऐका वृत्त । ...।३२।
-
-हे पुन्हा पाहावे
-।२७२।
-```
-
-The file contains:
-- Full transcription of all rendered text (line by line, paragraph separated)
-- Marginal annotation text
-- Folio number
-
----
-
-## Visual Features
-
-| Feature | Implementation |
+| Field | Meaning |
 |---|---|
-| Paper textures | Multi-scale Perlin-style noise + fiber simulation |
-| Aging effects | Yellowing, foxing spots, water stains, edge darkening |
-| Physical damage | Crease shadows, torn/irregular page boundaries |
-| Handwriting variation | Per-word baseline wobble, slant, pressure drift, stroke warp |
-| Ink simulation | Absorption-driven bleeding, fading on stained areas, density variation |
-| Rubrication | Random verse markers + words highlighted in vermilion ink |
-| Ruled lines | Shirorekha ruling (Devanagari) / baseline ruling (Modi) |
-| Margin notes | Rotated side annotations |
-| Folio numbers | Script-native numerals in page corners |
-| Scripts | Devanagari, Modi, Sharada via Unicode + RAQM shaping |
+| `text` | same text as the `.md` label |
+| `material`, `aging`, `ink_level` | background and ink settings |
+| `mode` | layout mode |
+| `rubricated_words` | words drawn in red |
+| `side_note`, `folio` | margin note and folio text, if present |
+| `curl` | `left`, `right`, `top`, `bottom` or null |
+| `fold` | `vertical`, `horizontal` or null |
+| `seed`, `attempts` | page seed and tries needed to pass the checks |
+
+```python
+from datasets import load_dataset
+ds = load_dataset("SarthDhakade963/indic-manuscript-dataset", "devanagari")
+print(ds)                     # train / validation / test
+sample = ds["train"][0]
+sample["image"].show()
+print(sample["text"])
+```
 
 ---
 
-## Requirements
-
+## Annotation format
+`Image_N.md` is plain text, one visual line per line, with no blank lines. The margin note and folio, when present, come last:
+```text
+श्री हरिः ॐ ।
+गणराज आधी वंदावा । दिधले बहुत धन । ऐक राजा तुझा कुमार ।११५।
+संकटी धावे श्रीहरी । अग्नि प्रज्वलित झाला । तोचि जाणावा ईश्वर ।११६।
+...
+।९०।
 ```
-Pillow>=10.0
-numpy>=1.26
-opencv-python>=4.9
-PyYAML>=6.0
-datasets>=3.0
-huggingface_hub>=0.25
-scikit-learn>=1.5
-fonttools>=4.0
-uharfbuzz>=0.40
-```
+- Lines are in reading order: column 1, then column 2, then colophon or closer.
+- On palm leaf, each row has three segments (split around the string holes); a row is written as one line with the segments joined by a space.
+- Ruling lines and the colophon box are not part of the text. Rubricated and highlighted words appear as normal text; the red words are listed in `metadata.jsonl`.
 
-> **Note:** RAQM must be available in your Pillow build for correct Indic text shaping.
-> Run `python check_environment.py` to verify.
+---
+
+## Validation and reproducibility
+- Every page is checked **after deformation**: `outside_fraction == 0.0` (no ink outside the page or inside a string hole) and `overflow == False` (no line past its margin). A failing page is regenerated with a new seed, up to `max_attempts`; generation stops with an error if it never passes.
+- The `.md` text is built from the same layout lines that are rendered, so image and label cannot drift apart.
+- All randomness comes from `seed`. Each page derives its own RNG from (`seed`, script index, page index), so the same configuration produces the same dataset, with or without `--workers`.
+
+---
+
+## Possible extensions
+- More paper tints and real scanned reference textures (`reference_path` is already supported by the material generator).
+- A larger corpus, and verification of the Modi and Sharada mappings by native readers.
+- Handwriting-style fonts per script, or per-glyph variants.
+- Line-level bounding boxes in `metadata.jsonl` (the layout already knows word and line positions).
+- More scripts (the pipeline needs only a font and a Unicode mapping).
 
