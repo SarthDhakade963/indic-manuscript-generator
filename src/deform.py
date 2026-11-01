@@ -27,7 +27,7 @@ def deform(rgb, alpha, rng, kind="paper", masks=(), strength=1.0):
     info = {"curl": None, "fold": None}
     palm = kind == "palmleaf"
 
-    # 1. smooth surface warp
+    # smooth surface warp
     amp = (0.006 if palm else 0.010) * s * strength
     cell = max(40, int(s // 3))
     dx += amp * _field(h, w, rng, cell)
@@ -36,7 +36,7 @@ def deform(rgb, alpha, rng, kind="paper", masks=(), strength=1.0):
         dy += rng.uniform(-8, 8) * strength * np.sin(np.pi * xx / w + rng.uniform(-0.4, 0.4))
         shade += rng.uniform(-0.05, 0.05) * (yy / h - 0.5) * 2.0
 
-    # 2. edge curl (paper / parchment only)
+    # edge curl (paper / parchment only)
     if not palm and rng.random() < 0.7:
         side = int(rng.integers(0, 4))                       # 0 left, 1 right, 2 top, 3 bottom
         d = [xx, w - 1 - xx, yy, h - 1 - yy][side]
@@ -57,7 +57,7 @@ def deform(rgb, alpha, rng, kind="paper", masks=(), strength=1.0):
                         - 0.20 * np.exp(-((d - 1.1 * cw) / (0.25 * cw)) ** 2))
         info["curl"] = ["left", "right", "top", "bottom"][side]
 
-    # 3. fold (paper / parchment only)
+    # fold (paper / parchment only)
     if not palm and rng.random() < 0.45:
         vertical = rng.random() < 0.45
         pos, tilt = rng.uniform(0.3, 0.7), rng.uniform(-0.04, 0.04)

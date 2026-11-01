@@ -239,7 +239,7 @@ def _shift(mask, layout, dx):
             wd["x1"] += dx
     return mask
 
-def _compose_palm(script, alpha, font_path, font_index, width, height, seed, font_size):  # PALM_V1
+def _compose_palm(script, alpha, font_path, font_index, width, height, seed, font_size): 
     rng = np.random.default_rng(seed)
     fs = int(font_size * 0.8)
     top = 62 + int(rng.integers(0, 14))
@@ -380,13 +380,13 @@ def compose(script, alpha, font_path, font_index=0, width=1400, height=1900, see
 
 
 def ink_page(page_rgb, alpha, comp, maps, material, aging_level, seed):
-    if material == "palmleaf":  # PALM_V1
+    if material == "palmleaf": 
         g = cv2.GaussianBlur(comp["black"], (0, 0), 2.2)
         a = (np.clip(g * 0.5, 0, 0.35) * _alpha01(alpha))[..., None]
         tint = np.array([0.60, 0.48, 0.32], np.float32)
         f = page_rgb.astype(np.float32) / 255.0
         page_rgb = (np.clip(f * (1.0 - a * (1.0 - tint)), 0, 1) * 255.0 + 0.5).astype(np.uint8)
-    ink_name = "lampblack" if material == "palmleaf" else "iron_gall"  # PALM_V1
+    ink_name = "lampblack" if material == "palmleaf" else "iron_gall" 
     out = render_ink(page_rgb, alpha, comp["black"], maps["absorbency"], maps["roughness"],
                      np.random.default_rng(seed + 7), ink=ink_name, fiber_map=maps["fiber_map"],
                      aging_level=aging_level, material=material)

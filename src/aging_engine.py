@@ -33,7 +33,7 @@ MAX_SPOTS = 400    # we always generate this many foxing spots and just use the 
 MAX_STAINS = 6     # same idea for water stains
 
 
-# ---------------------------------------------------------------- helpers
+# helpers
 
 def fbm(width, height, rng, grid=4, octaves=5, persistence=0.55):
     """Fractal Brownian Motion — layered noise at increasing frequencies.
@@ -81,7 +81,7 @@ def validate_paper(paper):
     return paper.copy()
 
 
-# ---------------------------------------------------------------- effects
+# effects
 
 def add_yellowing(paper, rng, strength):
     """Simulates cellulose oxidation — the paper slowly turns yellow-brown as it ages.
@@ -247,7 +247,7 @@ def add_edge_aging(paper, rng, strength):
     return multiply_toward(paper, alpha, [0.70, 0.50, 0.28])
 
 
-# ---------------------------------------------------------------- entry
+# entry
 
 def apply_aging(paper, profile, rng, damp=1.0):
     if profile not in AGING_PROFILES:

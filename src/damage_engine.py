@@ -25,7 +25,6 @@ def _smooth_1d(length, rng, knots):
 
 
 # creases
-
 def add_crease_shadows(paper, rng, count=3):
     """Simulates physical folds in the paper. Each crease has a dark valley on
     one side, a bright ridge beside it (where the paper bent outward), a subtle
@@ -96,7 +95,6 @@ def add_crease_shadows(paper, rng, count=3):
 
 
 # torn edge
-
 def generate_torn_edge(width, height, rng):
     """Generates an irregular torn paper boundary. Returns two things:
     - alpha (uint8): the page mask — white inside, black outside
@@ -171,7 +169,7 @@ def add_torn_rim(paper, signed, rng):
     return paper * (1.0 - a) + pale * a
 
 
-#---- entry
+# entry
 
 def apply_damage(
     paper,

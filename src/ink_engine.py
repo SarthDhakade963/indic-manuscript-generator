@@ -80,14 +80,14 @@ def render_ink(page_rgb, alpha, stroke_mask, absorbency, roughness, rng,
     rg = _norm(roughness)
     age = float(np.clip(aging_level, 0, 1))
 
-    # 1. Spread: more blur where the page is absorbent.
+    # Spread: more blur where the page is absorbent.
     s_lo = _gauss(m, 0.6)
     s_hi = _gauss(m, 1.6)
     t = np.clip(ab * bleed, 0, 1)
     blur = s_lo * (1 - t) + s_hi * t
 
-    # 2. Hairy edges: jitter the ink threshold with fibre structure (paper)
-    #    or fine pitting (parchment), so the boundary itself becomes ragged.
+    # Hairy edges: jitter the ink threshold with fibre structure (paper)
+    # or fine pitting (parchment), so the boundary itself becomes ragged.
     if fiber_map is not None and float(np.std(fiber_map)) > 1e-6:
         f = (fiber_map - fiber_map.mean()) / (fiber_map.std() + 1e-6)
         f = np.clip(f, -2.0, 2.0)
@@ -107,7 +107,7 @@ def render_ink(page_rgb, alpha, stroke_mask, absorbency, roughness, rng,
     # Wicking halo around strokes, strongest on absorbent paper.
     halo = _gauss(m, 3.0) * ab * 0.12 * bleed * halo_mod
 
-    # 3. Density variation: darker rim, dry patches, granulation, tooth.
+    # Density variation: darker rim, dry patches, granulation, tooth.
     edge = 4.0 * s * (1.0 - s)
     dens = 1.0 + 0.12 * edge
     dry = 0.5 * _lowfreq(shape, 48, rng) + 0.5 * _lowfreq(shape, 9, rng)
@@ -121,7 +121,7 @@ def render_ink(page_rgb, alpha, stroke_mask, absorbency, roughness, rng,
     d = d + halo * (1.0 - d)
     d = np.clip(d * cfg["max_opacity"], 0, 1)
 
-    # 5. Fade where the page is stained / dark, stronger on older pages.
+    # Fade where the page is stained / dark, stronger on older pages.
     lum = page.mean(axis=2)
     inside = al > 0.5
     ref = np.percentile(lum[inside], 90) if inside.any() else 1.0
@@ -131,7 +131,7 @@ def render_ink(page_rgb, alpha, stroke_mask, absorbency, roughness, rng,
 
     d = d * al
 
-    # 4. Colour
+    # Colour
     fresh = np.array(cfg["fresh"], dtype=np.float32)
     aged = np.array(cfg["aged"], dtype=np.float32)
     col = fresh + (aged - fresh) * (age * cfg["brown_amount"])

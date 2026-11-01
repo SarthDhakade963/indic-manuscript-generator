@@ -1,7 +1,30 @@
 {
+  "scripts": ["devanagari", "modi", "sharada"],
   "count_per_script": 100,
+  "split": {"train": 0.85, "validation": 0.10, "test": 0.05},
   "seed": 1234,
+  "output_dir": "output/dataset",
   "workers": 1,
+
+  "font_size": 38,
   "deform_strength": 0.75,
-  "materials": {"paper": 0.45, "parchment": 0.15, "palmleaf": 0.40}
+  "max_attempts": 12,
+
+  "materials": {"paper": 0.45, "parchment": 0.15, "palmleaf": 0.40},
+  "aging": {"light": 0.3, "moderate": 0.4, "heavy": 0.3},
+  "ink_level": {
+    "light": [0.1, 0.3],
+    "moderate": [0.4, 0.6],
+    "heavy": [0.7, 0.9]
+  },
+
+  "sizes": {"page": [1400, 1900], "palmleaf": [2000, 500]},
+
+  "fonts": {
+    "devanagari": ["assets/fonts/devanagiri/NIRMALA.TTC", 0],
+    "modi": ["assets/fonts/modi/NotoSansModi-Regular.ttf", 0],
+    "sharada": ["assets/fonts/sharada/NotoSansSharada-Regular.ttf", 0]
+  },
+
+  "backdrops": [[40, 38, 36], [70, 66, 60], [20, 20, 22], [110, 100, 88]]
 }

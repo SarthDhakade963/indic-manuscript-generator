@@ -11,7 +11,7 @@ MATERIALS = {
         "large": 3.5,              # how much the big slow tone shifts show up
         "medium": 2.0,             # mid-scale variation (think uneven pulp density)
         "grain": 2.4,              # fine surface texture — raised from 1.15 to look grittier
-        "fiber": 16.0,             # how visible the individual fiber strands are (was 9.0)
+        "fiber": 16.0,             # how visible the individual fiber strands are
         "absorbency": 0.62,        # how much the paper soaks up ink
         "roughness": 0.35,         # surface tooth — affects ink bleeding at stroke edges
     },
@@ -19,8 +19,8 @@ MATERIALS = {
         "base": (211, 190, 157),   # slightly darker and more golden than paper
         "large": 4.5,              # parchment has stronger tonal variation (it's animal skin)
         "medium": 2.5,
-        "grain": 2.8,              # was 1.4 — parchment is noticeably grainier up close
-        "fiber": 4.0,              # lower than paper — parchment doesn't have loose fibers (was 0.75)
+        "grain": 2.8,              # parchment is noticeably grainier up close
+        "fiber": 4.0,              # lower than paper — parchment doesn't have loose fibers
         "absorbency": 0.48,        # parchment is less absorbent, ink sits more on the surface
         "roughness": 0.48,         # slightly rougher due to scraped skin texture
     },
@@ -70,7 +70,7 @@ def generate_fiber_map(width, height, rng):
     fiber locations have any value, the rest is zero."""
     canvas = np.zeros((height, width), dtype=np.float32)
 
-    count = int(width * height / 450)   # roughly 4500 strands for a 1200×1600 page
+    count = int(width * height / 450)
 
     for _ in range(count):
         x = rng.uniform(0, width)
@@ -120,7 +120,7 @@ def generate_skin_detail(width, height, rng):
     mottle += 0.6 * spatial_noise(width, height, rng, 110, blur=1.5)
     mottle /= mottle.std() + 1e-6
 
-    # Faint vein lines — long, wandering, very softly blurred so they barely show
+    # Faint vein lines - long, wandering, very softly blurred so they barely show
     veins = np.zeros((height, width), dtype=np.float32)
     for _ in range(int(width * height / 120000) + 3):
         x = rng.uniform(0, width)
@@ -137,7 +137,7 @@ def generate_skin_detail(width, height, rng):
                       thickness=2, lineType=cv2.LINE_AA)
     veins = cv2.GaussianBlur(veins, (0, 0), 2.5)
 
-    # Follicle specks — tiny dark dots scattered across the surface, one per old hair follicle
+    # Follicle specks - tiny dark dots scattered across the surface, one per old hair follicle
     specks = np.zeros((height, width), dtype=np.float32)
     count = int(width * height / 2500)
     xs = rng.integers(0, width, count)

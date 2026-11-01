@@ -46,7 +46,7 @@ def generate_manuscript_background(
     aging_rng = np.random.default_rng(aging_seed)
     damage_rng = np.random.default_rng(damage_seed)
 
-    # 1. Generate the physical material surface (texture + fiber maps)
+    # Generate the physical material surface (texture + fiber maps)
     surface = generate_material_surface(
         width=width,
         height=height,
@@ -57,7 +57,7 @@ def generate_manuscript_background(
 
     paper = surface.rgb.copy()
 
-    # 2. Age the paper (yellowing, foxing, water stains, edge darkening)
+    # Age the paper (yellowing, foxing, water stains, edge darkening)
     paper = apply_aging(
         paper,
         profile=aging,
@@ -65,7 +65,7 @@ def generate_manuscript_background(
         damp=0.5 if material == "palmleaf" else 1.0,
     )
 
-    # 3. Add physical damage: creases and torn edges
+    # Add physical damage: creases and torn edges
     crease_count = 0
     if material == "palmleaf":
         paper, alpha = apply_palm_damage(paper, damage_rng, edge_strength=EDGE_DARKEN[aging] * 0.5)
