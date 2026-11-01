@@ -219,7 +219,7 @@ samples/                   example pages
 
 `metadata.jsonl` has one row per image. Example (text shortened):
 ```json
-{"file_name": "Image_6.png", "text": "श्री हरिः ॐ ।\n...", "script": "devanagari", "material": "paper", "aging": "moderate", "ink_level": 0.504, "mode": "colophon", "font": "NIRMALA.TTC", "seed": 1587455218, "attempts": 1, "rubricated_words": ["।१२३।", "।१२४।", "।१२५।"], "side_note": null, "folio": "।९०।", "curl": "left", "fold": null, "width": 1400, "height": 1900}
+{"file_name": "Image_6.png", "text": "श्री हरिः ॐ ।\n...", "script": "devanagari", "material": "paper", "aging": "moderate", "ink_level": 0.504, "mode": "colophon", "font": "NIRMALA.TTC", "seed": 1587455218, "attempts": 1, "rubricated_words": ["।१२३।", "।१२४।", "।१२५।"], "side_note": "", "folio": "।९०।", "curl": "left", "fold": "", "width": 1400, "height": 1900}
 ```
 | Field | Meaning |
 |---|---|
@@ -227,9 +227,9 @@ samples/                   example pages
 | `material`, `aging`, `ink_level` | background and ink settings |
 | `mode` | layout mode |
 | `rubricated_words` | words drawn in red |
-| `side_note`, `folio` | margin note and folio text, if present |
-| `curl` | `left`, `right`, `top`, `bottom` or null |
-| `fold` | `vertical`, `horizontal` or null |
+| `side_note`, `folio` | margin note and folio text, or empty string |
+| `curl` | `left`, `right`, `top`, `bottom` or empty strings |
+| `fold` | `vertical`, `horizontal` or empty strings |
 | `seed`, `attempts` | page seed and tries needed to pass the checks |
 
 ```python

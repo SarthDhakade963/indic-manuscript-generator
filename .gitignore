@@ -15,6 +15,10 @@ ENV/
 
 output/*
 
+check_*
+
+comparing_*
+
 .env
 .env.*
 !.env.example

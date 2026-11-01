@@ -106,8 +106,8 @@ def make_page(job):
     return {"name": name, "text": md.rstrip("\n"), "script": script, "material": mat, "aging": aging,
             "ink_level": round(level, 3), "mode": comp["mode"], "font": Path(fp).name, "seed": seed,
             "attempts": attempt + 1, "rubricated_words": comp["highlighted"],
-            "side_note": comp["side_note"], "folio": comp["folio"], "curl": info["curl"],
-            "fold": info["fold"], "width": W, "height": H}
+            "side_note": comp["side_note"] or "", "folio": comp["folio"] or "", "curl": info["curl"] or "", 
+            "fold": info["fold"] or "", "width": W, "height": H}
 
 
 def contact_sheet(paths, dest, cols=6, tw=230, th=300):
